@@ -5,6 +5,7 @@ from pydub import AudioSegment
 import tempfile
 import requests
 from io import StringIO
+import re
 
 # Set page configuration
 st.set_page_config(
@@ -110,8 +111,9 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                 chunks = split_audio(temp_file_path)
                 for idx, chunk in enumerate(chunks, start=1):
                     status_text.text(f"Transcribing chunk {idx} of {len(chunks)} for {file.name}...")
-                    progress = int((processed_files - 1) / total_files * 100 + (idx / len(chunks)) * (100 / total_files))
-                    progress_bar.progress(min(progress, 100))
+                    progress_increment = (100 / total_files) / len(chunks)
+                    current_progress = progress + int((idx / len(chunks)) * (100 / total_files))
+                    progress_bar.progress(min(current_progress, 100))
                     with open(chunk, "rb") as audio_file:
                         transcription = openai.Audio.transcribe(
                             model="whisper-1",
@@ -154,8 +156,9 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                 chunks = split_audio(local_filename)
                 for idx, chunk in enumerate(chunks, start=1):
                     status_text.text(f"Transcribing chunk {idx} of {len(chunks)} for {url}...")
-                    progress = int((processed_files - 1) / total_files * 100 + (idx / len(chunks)) * (100 / total_files))
-                    progress_bar.progress(min(progress, 100))
+                    progress_increment = (100 / total_files) / len(chunks)
+                    current_progress = progress + int((idx / len(chunks)) * (100 / total_files))
+                    progress_bar.progress(min(current_progress, 100))
                     with open(chunk, "rb") as audio_file:
                         transcription = openai.Audio.transcribe(
                             model="whisper-1",
@@ -184,10 +187,9 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
     if include_timestamps:
         status_text.text("Generating timestamps...")
         full_result = generate_minute_based_timestamps(full_result, interval_minutes=1)
-        progress_bar.progress(100)
-    else:
-        progress_bar.progress(100)
 
+    progress_bar.progress(100)
+    status_text.text("Transcription completed successfully!")
     return full_result
 
 # Streamlit Widgets
