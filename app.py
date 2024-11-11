@@ -6,6 +6,8 @@ import tempfile
 import requests
 from io import StringIO
 import converter  # Import the conversion function
+import json
+import streamlit.components.v1 as components
 
 # Set page configuration
 st.set_page_config(
@@ -291,19 +293,47 @@ if st.button("Transcribe"):
 
         if transcription:
             st.success("Transcription completed successfully!")
-            transcription_area = st.text_area("Transcription Result:", transcription, height=300)
+            
+            # Display the transcription in a read-only text area
+            transcription_area = st.text_area(
+                "Transcription Result:",
+                transcription,
+                height=300,
+                key="transcription"
+            )
 
+            # Encode the transcription text safely for JavaScript
+            transcription_json = json.dumps(transcription)
+
+            # Create the HTML and JavaScript for the copy button
+            copy_button_html = f"""
+            <div style="margin-top: 10px;">
+                <button onclick="copyToClipboard()" style="background-color:#4CAF50; border:none; color:white; padding:10px 20px; text-align:center;
+                text-decoration:none; display:inline-block; font-size:16px; border-radius:5px; cursor:pointer;">
+                    📋 Copy to Clipboard
+                </button>
+            </div>
+            <script>
+                function copyToClipboard() {{
+                    const text = {transcription_json};
+                    navigator.clipboard.writeText(text).then(function() {{
+                        alert("Transcription copied to clipboard!");
+                    }}, function(err) {{
+                        alert("Failed to copy text: ", err);
+                    }});
+                }}
+            </script>
+            """
+
+            # Embed the HTML and JavaScript in the Streamlit app
+            components.html(copy_button_html, height=100)
+            
+            # Provide a download button as an alternative
             transcription_filename = "transcription.txt"
             transcription_io = StringIO(transcription)
             st.download_button(
-                label="Download Transcription as .txt",
+                label="⬇️ Download Transcription as .txt",
                 data=transcription_io.getvalue(),
                 file_name=transcription_filename,
                 mime="text/plain"
             )
-
-            # Copy to clipboard button
-            st.button(
-                "Copy Transcription to Clipboard", 
-                on_click=lambda: st.write("Transcription copied to clipboard!")
-            )  # Note: Streamlit's clipboard support is limited; consider using JavaScript for full functionality
