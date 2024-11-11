@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # Title
-st.title("📄 Audio Transcription")
+st.title("📄 Audio Transcription App")
 
 # Sidebar for instructions
 with st.sidebar:
@@ -67,31 +67,24 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
-# Function to generate minute-based timestamps
-def generate_minute_based_timestamps(text, interval_minutes=1):
-    words = text.split()
-    num_words = len(words)
-    words_per_interval = 160 * interval_minutes  # Assuming 160 words per minute
-    timestamp_text = ""
-    current_time = 0  # in seconds
-
-    for i in range(0, num_words, words_per_interval):
-        minute = current_time // 60
-        second = current_time % 60
-        timestamp = f"[{int(minute):02d}:{int(second):02d}]"
-        chunk = " ".join(words[i:i + words_per_interval])
-        timestamp_text += f"{timestamp} {chunk}\n\n"
-        current_time += interval_minutes * 60
-
-    return timestamp_text
-
 # Function to handle transcription
 def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, status_text):
     openai.api_key = api_key
     total_files = len(files) + len(urls)
     processed_files = 0
-    full_text_result = ""
-    full_word_result = []
+    full_result = ""
+
+    def transcription_to_dict(transcription):
+        return {
+            "text": transcription.get("text", ""),
+            "words": [
+                {
+                    "start": word.get("start"),
+                    "end": word.get("end"),
+                    "text": word.get("text")
+                } for word in transcription.get("words", [])
+            ]
+        }
 
     for file in files:
         processed_files += 1
@@ -99,56 +92,42 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
         progress_bar.progress(progress)
         status_text.text(f"Processing file {processed_files} of {total_files}: {file.name}")
 
-        # Save uploaded file to a temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
             temp_file.write(file.read())
             temp_file_path = temp_file.name
 
         try:
             file_size = os.path.getsize(temp_file_path)
-            response_format = "verbose_json" if include_timestamps else "text"
-
-            if file_size > 20 * 1024 * 1024:  # If file is larger than 20 MB
+            if file_size > 20 * 1024 * 1024:
                 status_text.text(f"Splitting large audio file {file.name}...")
                 chunks = split_audio(temp_file_path)
                 for idx, chunk in enumerate(chunks, start=1):
-                    status_text.text(f"Transcribing chunk {idx} of {len(chunks)} for {file.name}...")
-                    current_progress = progress + int((idx / len(chunks)) * (100 / total_files))
-                    progress_bar.progress(min(current_progress, 100))
                     with open(chunk, "rb") as audio_file:
                         transcription = openai.Audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format=response_format,
-                            timestamp_granularities=["word"] if include_timestamps else None,
-                            language="de"  # German transcription
+                            response_format="verbose_json",
+                            timestamp_granularities=["word"],
+                            language="de"  # German language transcription
                         )
-                        if include_timestamps:
-                            # Process verbose JSON to accumulate text and words with timestamps
-                            full_text_result += transcription['text']
-                            full_word_result.extend(transcription['words'])
-                        else:
-                            full_text_result += transcription
-                    os.unlink(chunk)  # Delete temporary chunk file
+                        transcription_dict = transcription_to_dict(transcription)
+                        full_result += transcription_dict["text"] + " "
+                    os.unlink(chunk)
             else:
-                status_text.text(f"Transcribing {file.name}...")
                 with open(temp_file_path, "rb") as audio_file:
                     transcription = openai.Audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format=response_format,
+                        response_format="verbose_json" if include_timestamps else "text",
                         timestamp_granularities=["word"] if include_timestamps else None,
-                        language="de"  # German transcription
+                        language="de"  # German language transcription
                     )
-                    if include_timestamps:
-                        full_text_result += transcription['text']
-                        full_word_result.extend(transcription['words'])
-                    else:
-                        full_text_result += transcription
+                    transcription_dict = transcription_to_dict(transcription)
+                    full_result += transcription_dict["text"] + " "
         except Exception as e:
-            st.error(f"Error transcribing {file.name}: {e}")
+            st.error(f"Error transcribing {file.name}: {str(e)}")
         finally:
-            os.unlink(temp_file_path)  # Delete the temporary file
+            os.unlink(temp_file_path)
 
     for url in urls:
         processed_files += 1
@@ -160,58 +139,43 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
             local_filename = f"temp_audio_{processed_files}.mp3"
             downloaded_file = download_file(url, local_filename)
             if not downloaded_file:
-                continue  # Skip to next file if download failed
+                continue
 
             file_size = os.path.getsize(local_filename)
-            response_format = "verbose_json" if include_timestamps else "text"
-
             if file_size > 20 * 1024 * 1024:
-                status_text.text(f"Splitting large audio file from {url}...")
                 chunks = split_audio(local_filename)
                 for idx, chunk in enumerate(chunks, start=1):
-                    status_text.text(f"Transcribing chunk {idx} of {len(chunks)} for {url}...")
-                    current_progress = progress + int((idx / len(chunks)) * (100 / total_files))
-                    progress_bar.progress(min(current_progress, 100))
                     with open(chunk, "rb") as audio_file:
                         transcription = openai.Audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format=response_format,
-                            timestamp_granularities=["word"] if include_timestamps else None,
-                            language="de"  # German transcription
+                            response_format="verbose_json",
+                            timestamp_granularities=["word"],
+                            language="de"
                         )
-                        if include_timestamps:
-                            full_text_result += transcription['text']
-                            full_word_result.extend(transcription['words'])
-                        else:
-                            full_text_result += transcription
-                    os.unlink(chunk)  # Delete temporary chunk file
+                        transcription_dict = transcription_to_dict(transcription)
+                        full_result += transcription_dict["text"] + " "
+                    os.unlink(chunk)
             else:
-                status_text.text(f"Transcribing audio from {url}...")
                 with open(local_filename, "rb") as audio_file:
                     transcription = openai.Audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format=response_format,
+                        response_format="verbose_json" if include_timestamps else "text",
                         timestamp_granularities=["word"] if include_timestamps else None,
-                        language="de"  # German transcription
+                        language="de"
                     )
-                    if include_timestamps:
-                        full_text_result += transcription['text']
-                        full_word_result.extend(transcription['words'])
-                    else:
-                        full_text_result += transcription
+                    transcription_dict = transcription_to_dict(transcription)
+                    full_result += transcription_dict["text"] + " "
         except Exception as e:
-            st.error(f"Error transcribing from {url}: {e}")
+            st.error(f"Error transcribing from {url}: {str(e)}")
         finally:
             if os.path.exists(local_filename):
-                os.remove(local_filename)  # Delete the downloaded file
+                os.remove(local_filename)
 
-    if include_timestamps:
-        return full_text_result, full_word_result
-    else:
-        return full_text_result, None
-
+    progress_bar.progress(100)
+    status_text.text("Transcription completed successfully!")
+    return full_result
 
 # Streamlit Widgets
 st.header("🔑 Enter Your OpenAI API Key")
@@ -231,15 +195,12 @@ if st.button("Transcribe"):
     elif not file_upload and not url_input.strip():
         st.error("Please upload at least one MP3 file or enter a URL.")
     else:
-        # Prepare list of URLs
         urls = [url.strip() for url in url_input.strip().split('\n') if url.strip()]
 
-        # Initialize progress bar and status text
         progress_bar = st.progress(0)
         status_text = st.empty()
         status_text.text("Starting transcription...")
 
-        # Perform transcription
         transcription = transcribe_audio(
             api_key=api_key,
             files=file_upload,
@@ -251,10 +212,8 @@ if st.button("Transcribe"):
 
         if transcription:
             st.success("Transcription completed successfully!")
-            # Display transcription
             st.text_area("Transcription Result:", transcription, height=300)
 
-            # Provide download option
             transcription_filename = "transcription.txt"
             transcription_io = StringIO(transcription)
             st.download_button(
