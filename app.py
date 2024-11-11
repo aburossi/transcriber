@@ -67,6 +67,24 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
+# Function to generate minute-based timestamps
+def generate_minute_based_timestamps(text, interval_minutes=1):
+    words = text.split()  # Split text into words
+    num_words = len(words)
+    words_per_interval = 160 * interval_minutes  # Assuming 160 words per minute
+    timestamp_text = ""
+    current_time = 0  # Time in seconds
+
+    for i in range(0, num_words, words_per_interval):
+        minute = current_time // 60
+        second = current_time % 60
+        timestamp = f"[{minute:02d}:{second:02d}]"
+        chunk = " ".join(words[i:i + words_per_interval])
+        timestamp_text += f"{timestamp} {chunk}\n\n"
+        current_time += interval_minutes * 60  # Increment the time by the interval in seconds
+
+    return timestamp_text
+
 # Function to handle transcription
 def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, status_text):
     client = OpenAI(api_key=api_key)
@@ -74,21 +92,9 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
     processed_files = 0
     full_result = ""
 
-    def transcription_to_text_and_words(transcription):
+    def transcription_to_text(transcription):
         transcription_dict = transcription.model_dump()
-        text = transcription_dict.get("text", "")
-        words = transcription_dict.get("words", [])
-        
-        # Format transcription text with timestamps
-        if include_timestamps and words:
-            formatted_text = ""
-            for word_info in words:
-                start = word_info.get("start", 0)
-                word_text = word_info.get("text", "")
-                formatted_text += f"[{start:.2f}] {word_text} "
-            return formatted_text.strip(), words
-        else:
-            return text, words
+        return transcription_dict.get("text", "")
 
     for file in files:
         processed_files += 1
@@ -110,10 +116,10 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="verbose_json" if include_timestamps else "text",
+                            response_format="text",
                             language="de"
                         )
-                        text, words = transcription_to_text_and_words(transcription)
+                        text = transcription_to_text(transcription)
                         full_result += text + " "
                     os.unlink(chunk)
             else:
@@ -121,10 +127,10 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format="verbose_json" if include_timestamps else "text",
+                        response_format="text",
                         language="de"
                     )
-                    text, words = transcription_to_text_and_words(transcription)
+                    text = transcription_to_text(transcription)
                     full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing {file.name}: {str(e)}")
@@ -151,10 +157,10 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="verbose_json" if include_timestamps else "text",
+                            response_format="text",
                             language="de"
                         )
-                        text, words = transcription_to_text_and_words(transcription)
+                        text = transcription_to_text(transcription)
                         full_result += text + " "
                     os.unlink(chunk)
             else:
@@ -162,16 +168,19 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format="verbose_json" if include_timestamps else "text",
+                        response_format="text",
                         language="de"
                     )
-                    text, words = transcription_to_text_and_words(transcription)
+                    text = transcription_to_text(transcription)
                     full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing from {url}: {str(e)}")
         finally:
             if os.path.exists(local_filename):
                 os.remove(local_filename)
+
+    if include_timestamps:
+        full_result = generate_minute_based_timestamps(full_result, interval_minutes=1)
 
     progress_bar.progress(100)
     status_text.text("Transcription completed successfully!")
