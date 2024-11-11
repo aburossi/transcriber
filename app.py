@@ -22,20 +22,34 @@ st.title("📄 Audio Transcription App")
 # Sidebar for instructions
 with st.sidebar:
     st.header("❗ **How to Use This App**")
+    
     st.markdown("""
     1. **Enter your OpenAI API Key**: Obtain your API key from [OpenAI](https://platform.openai.com/account/api-keys) and enter it below.
+    """)
+    
+    # Embed the video in the sidebar
+    components.html("""
+        <iframe width="100%" height="180" src="https://www.youtube.com/embed/2V0QnwKxFXg" 
+        title="Demo Video in German" frameborder="0" allow="accelerometer; autoplay; 
+        clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+        </iframe>
+    """, height=180)
+    
+    # Continue with additional instructions
+    st.markdown("""
     2. **Upload Audio Files or Enter URLs**: You can either upload audio files (MP3, WAV, OGG, FLAC) directly or provide URLs to audio files.
     3. **Choose Options**: Select language and whether to include timestamps in the transcription.
     4. **Transcribe**: Click the "Transcribe" button to start the process.
     5. **Download or Copy Transcription**: Once completed, download the transcription as a text file or use the copy button to save it to the clipboard.
     """)
-
+    
     st.header("👉 **Best Practices**")
     st.markdown("""
     - Ensure your audio files are in supported formats (MP3, WAV, OGG, FLAC).
     - For large audio files, consider splitting them into smaller segments for more accurate transcription.
     - Keep your API key secure and do not share it publicly.
     """)
+
 
 # Function to download file from URL
 def download_file(url, local_filename):
