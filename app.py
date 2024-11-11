@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 import os
 from pydub import AudioSegment
 import tempfile
@@ -69,7 +69,7 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
 
 # Function to handle transcription
 def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, status_text):
-    openai.api_key = api_key
+    client = OpenAI(api_key=api_key)
     total_files = len(files) + len(urls)
     processed_files = 0
     full_result = ""
@@ -103,24 +103,22 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                 chunks = split_audio(temp_file_path)
                 for idx, chunk in enumerate(chunks, start=1):
                     with open(chunk, "rb") as audio_file:
-                        transcription = openai.Audio.transcriptions.create(
+                        transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="verbose_json",
-                            timestamp_granularities=["word"],
-                            language="de"  # German language transcription
+                            response_format="verbose_json" if include_timestamps else "text",
+                            language="de"
                         )
                         transcription_dict = transcription_to_dict(transcription)
                         full_result += transcription_dict["text"] + " "
                     os.unlink(chunk)
             else:
                 with open(temp_file_path, "rb") as audio_file:
-                    transcription = openai.Audio.transcriptions.create(
+                    transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
                         response_format="verbose_json" if include_timestamps else "text",
-                        timestamp_granularities=["word"] if include_timestamps else None,
-                        language="de"  # German language transcription
+                        language="de"
                     )
                     transcription_dict = transcription_to_dict(transcription)
                     full_result += transcription_dict["text"] + " "
@@ -146,11 +144,10 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                 chunks = split_audio(local_filename)
                 for idx, chunk in enumerate(chunks, start=1):
                     with open(chunk, "rb") as audio_file:
-                        transcription = openai.Audio.transcriptions.create(
+                        transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="verbose_json",
-                            timestamp_granularities=["word"],
+                            response_format="verbose_json" if include_timestamps else "text",
                             language="de"
                         )
                         transcription_dict = transcription_to_dict(transcription)
@@ -158,11 +155,10 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                     os.unlink(chunk)
             else:
                 with open(local_filename, "rb") as audio_file:
-                    transcription = openai.Audio.transcriptions.create(
+                    transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
                         response_format="verbose_json" if include_timestamps else "text",
-                        timestamp_granularities=["word"] if include_timestamps else None,
                         language="de"
                     )
                     transcription_dict = transcription_to_dict(transcription)
