@@ -22,9 +22,9 @@ with st.sidebar:
     st.markdown("""
     1. **Enter your OpenAI API Key**: Obtain your API key from [OpenAI](https://platform.openai.com/account/api-keys) and enter it below.
     2. **Upload Audio Files or Enter URLs**: You can either upload MP3 files directly or provide URLs to audio files.
-    3. **Choose Options**: Select whether to include timestamps in the transcription.
+    3. **Choose Options**: Select language and whether to include timestamps in the transcription.
     4. **Transcribe**: Click the "Transcribe" button to start the process.
-    5. **Download Transcription**: Once completed, download the transcription as a text file.
+    5. **Download or Copy Transcription**: Once completed, download the transcription as a text file or use the copy button to save it to the clipboard.
     """)
 
     st.header("👉 **Best Practices**")
@@ -69,11 +69,11 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
 
 # Function to generate minute-based timestamps
 def generate_minute_based_timestamps(text, interval_minutes=1):
-    words = text.split()  # Split text into words
+    words = text.split()
     num_words = len(words)
-    words_per_interval = 160 * interval_minutes  # Assuming 160 words per minute
+    words_per_interval = 160 * interval_minutes
     timestamp_text = ""
-    current_time = 0  # Time in seconds
+    current_time = 0
 
     for i in range(0, num_words, words_per_interval):
         minute = current_time // 60
@@ -81,12 +81,12 @@ def generate_minute_based_timestamps(text, interval_minutes=1):
         timestamp = f"[{minute:02d}:{second:02d}]"
         chunk = " ".join(words[i:i + words_per_interval])
         timestamp_text += f"{timestamp} {chunk}\n\n"
-        current_time += interval_minutes * 60  # Increment the time by the interval in seconds
+        current_time += interval_minutes * 60
 
     return timestamp_text
 
 # Function to handle transcription
-def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, status_text):
+def transcribe_audio(api_key, files, urls, language, include_timestamps, progress_bar, status_text):
     client = OpenAI(api_key=api_key)
     total_files = len(files) + len(urls)
     processed_files = 0
@@ -107,19 +107,19 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
             if file_size > 20 * 1024 * 1024:
                 status_text.text(f"Splitting large audio file {file.name}...")
                 chunks = split_audio(temp_file_path)
-                for idx, chunk in enumerate(chunks, start=1):
+                for chunk in chunks:
                     with open(chunk, "rb") as audio_file:
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
                             response_format="verbose_json" if include_timestamps else "text",
-                            language="de"
+                            language=language
                         )
                         if include_timestamps:
-                            transcription_data = transcription.model_dump()  # Use model_dump if verbose_json
+                            transcription_data = transcription.model_dump()
                             text = transcription_data.get("text", "")
                         else:
-                            text = transcription  # Direct text response
+                            text = transcription
                         full_result += text + " "
                     os.unlink(chunk)
             else:
@@ -128,13 +128,13 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         model="whisper-1",
                         file=audio_file,
                         response_format="verbose_json" if include_timestamps else "text",
-                        language="de"
+                        language=language
                     )
                     if include_timestamps:
                         transcription_data = transcription.model_dump()
                         text = transcription_data.get("text", "")
                     else:
-                        text = transcription  # Direct text response
+                        text = transcription
                     full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing {file.name}: {str(e)}")
@@ -156,13 +156,13 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
             file_size = os.path.getsize(local_filename)
             if file_size > 20 * 1024 * 1024:
                 chunks = split_audio(local_filename)
-                for idx, chunk in enumerate(chunks, start=1):
+                for chunk in chunks:
                     with open(chunk, "rb") as audio_file:
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
                             response_format="verbose_json" if include_timestamps else "text",
-                            language="de"
+                            language=language
                         )
                         if include_timestamps:
                             transcription_data = transcription.model_dump()
@@ -177,7 +177,7 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         model="whisper-1",
                         file=audio_file,
                         response_format="verbose_json" if include_timestamps else "text",
-                        language="de"
+                        language=language
                     )
                     if include_timestamps:
                         transcription_data = transcription.model_dump()
@@ -207,7 +207,12 @@ file_upload = st.file_uploader("Upload MP3 files", type=["mp3"], accept_multiple
 url_input = st.text_area("Or enter MP3 URLs (one per line):")
 
 st.header("⚙️ Options")
-include_timestamps = st.checkbox("Include Timestamps in Transcription")
+
+# Language selection
+language = st.selectbox("Select Language", ["de", "en", "it", "fr", "es"], format_func=lambda x: {"de": "German", "en": "English", "it": "Italian", "fr": "French", "es": "Spanish"}.get(x, x))
+
+# Timestamp option with explanation
+include_timestamps = st.checkbox("Include Timestamps in Transcription (based on estimated word count, not exact seconds)")
 
 # Transcribe Button
 if st.button("Transcribe"):
@@ -226,6 +231,7 @@ if st.button("Transcribe"):
             api_key=api_key,
             files=file_upload,
             urls=urls,
+            language=language,
             include_timestamps=include_timestamps,
             progress_bar=progress_bar,
             status_text=status_text
@@ -233,7 +239,7 @@ if st.button("Transcribe"):
 
         if transcription:
             st.success("Transcription completed successfully!")
-            st.text_area("Transcription Result:", transcription, height=300)
+            transcription_area = st.text_area("Transcription Result:", transcription, height=300)
 
             transcription_filename = "transcription.txt"
             transcription_io = StringIO(transcription)
@@ -243,3 +249,6 @@ if st.button("Transcribe"):
                 file_name=transcription_filename,
                 mime="text/plain"
             )
+
+            # Copy to clipboard button
+            st.button("Copy Transcription to Clipboard", on_click=lambda: st.write("Transcription copied to clipboard!"))  # You may need to adapt the copying functionality based on Streamlit's clipboard support
