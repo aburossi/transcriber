@@ -27,6 +27,13 @@ with st.sidebar:
     5. **Download Transcription**: Once completed, download the transcription as a text file.
     """)
 
+    st.header("👉 **Best Practices**")
+    st.markdown("""
+    - Ensure your audio files are in MP3 format.
+    - For large audio files, consider splitting them into smaller segments for more accurate transcription.
+    - Keep your API key secure and do not share it publicly.
+    """)
+
 # Function to download file from URL
 def download_file(url, local_filename):
     try:
@@ -46,7 +53,8 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         audio = AudioSegment.from_mp3(file_path)
         chunks = []
         duration = len(audio)
-        chunk_length_ms = int((chunk_size / (audio.frame_rate * audio.sample_width * audio.channels)) * 1000)
+        bytes_per_second = audio.frame_rate * audio.sample_width * audio.channels
+        chunk_length_ms = int((chunk_size / bytes_per_second) * 1000)
 
         for i in range(0, duration, chunk_length_ms):
             chunk = audio[i:i+chunk_length_ms]
@@ -59,25 +67,6 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
-# Function to convert transcription data to minute-based timestamps
-def generate_minute_based_timestamps(words, interval_minutes=1):
-    interval_seconds = interval_minutes * 60
-    timestamp_text = ""
-    current_time = 0
-
-    for word in words:
-        word_start = word["start"]
-        if word_start >= current_time:
-            minute = int(word_start // 60)
-            second = int(word_start % 60)
-            timestamp = f"[{minute:02d}:{second:02d}]"
-            timestamp_text += f"{timestamp} "
-            current_time += interval_seconds
-
-        timestamp_text += word["text"] + " "
-
-    return timestamp_text.strip()
-
 # Function to handle transcription
 def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, status_text):
     client = OpenAI(api_key=api_key)
@@ -87,9 +76,7 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
 
     def transcription_to_text_and_words(transcription):
         transcription_dict = transcription.model_dump()
-        text = transcription_dict.get("text", "")
-        words = transcription_dict.get("words", [])
-        return text, words
+        return transcription_dict.get("text", ""), transcription_dict.get("words", [])
 
     for file in files:
         processed_files += 1
@@ -111,36 +98,68 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="verbose_json",
-                            timestamp_granularities=["word"],
+                            response_format="verbose_json" if include_timestamps else "text",
                             language="de"
                         )
                         text, words = transcription_to_text_and_words(transcription)
-                        if include_timestamps:
-                            text_with_timestamps = generate_minute_based_timestamps(words)
-                            full_result += text_with_timestamps + "\n"
-                        else:
-                            full_result += text + "\n"
+                        full_result += text + " "
                     os.unlink(chunk)
             else:
                 with open(temp_file_path, "rb") as audio_file:
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format="verbose_json",
-                        timestamp_granularities=["word"],
+                        response_format="verbose_json" if include_timestamps else "text",
                         language="de"
                     )
                     text, words = transcription_to_text_and_words(transcription)
-                    if include_timestamps:
-                        text_with_timestamps = generate_minute_based_timestamps(words)
-                        full_result += text_with_timestamps + "\n"
-                    else:
-                        full_result += text + "\n"
+                    full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing {file.name}: {str(e)}")
         finally:
             os.unlink(temp_file_path)
+
+    for url in urls:
+        processed_files += 1
+        progress = int((processed_files - 1) / total_files * 100)
+        progress_bar.progress(progress)
+        status_text.text(f"Processing URL {processed_files} of {total_files}: {url}")
+
+        try:
+            local_filename = f"temp_audio_{processed_files}.mp3"
+            downloaded_file = download_file(url, local_filename)
+            if not downloaded_file:
+                continue
+
+            file_size = os.path.getsize(local_filename)
+            if file_size > 20 * 1024 * 1024:
+                chunks = split_audio(local_filename)
+                for idx, chunk in enumerate(chunks, start=1):
+                    with open(chunk, "rb") as audio_file:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            response_format="verbose_json" if include_timestamps else "text",
+                            language="de"
+                        )
+                        text, words = transcription_to_text_and_words(transcription)
+                        full_result += text + " "
+                    os.unlink(chunk)
+            else:
+                with open(local_filename, "rb") as audio_file:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="verbose_json" if include_timestamps else "text",
+                        language="de"
+                    )
+                    text, words = transcription_to_text_and_words(transcription)
+                    full_result += text + " "
+        except Exception as e:
+            st.error(f"Error transcribing from {url}: {str(e)}")
+        finally:
+            if os.path.exists(local_filename):
+                os.remove(local_filename)
 
     progress_bar.progress(100)
     status_text.text("Transcription completed successfully!")
