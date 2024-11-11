@@ -67,11 +67,11 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
-# Function to generate minute-based timestamps
-def generate_minute_based_timestamps(text, interval_minutes=1):
+# Function to generate minute-based timestamps with adjusted WPM
+def generate_minute_based_timestamps(text, interval_minutes=1, words_per_minute=100):
     words = text.split()
     num_words = len(words)
-    words_per_interval = 160 * interval_minutes
+    words_per_interval = words_per_minute * interval_minutes
     timestamp_text = ""
     current_time = 0
 
