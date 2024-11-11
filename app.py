@@ -236,4 +236,3 @@ if st.button("Transcribe"):
 
 # Function to display the transcription result (optional)
 # This is handled within the `run_transcription` function above
-
