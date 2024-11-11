@@ -74,17 +74,9 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
     processed_files = 0
     full_result = ""
 
-    def transcription_to_dict(transcription):
-        return {
-            "text": transcription.get("text", ""),
-            "words": [
-                {
-                    "start": word.get("start"),
-                    "end": word.get("end"),
-                    "text": word.get("text")
-                } for word in transcription.get("words", [])
-            ]
-        }
+    def transcription_to_text_and_words(transcription):
+        transcription_dict = transcription.model_dump()
+        return transcription_dict.get("text", ""), transcription_dict.get("words", [])
 
     for file in files:
         processed_files += 1
@@ -109,8 +101,8 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                             response_format="verbose_json" if include_timestamps else "text",
                             language="de"
                         )
-                        transcription_dict = transcription_to_dict(transcription)
-                        full_result += transcription_dict["text"] + " "
+                        text, words = transcription_to_text_and_words(transcription)
+                        full_result += text + " "
                     os.unlink(chunk)
             else:
                 with open(temp_file_path, "rb") as audio_file:
@@ -120,8 +112,8 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         response_format="verbose_json" if include_timestamps else "text",
                         language="de"
                     )
-                    transcription_dict = transcription_to_dict(transcription)
-                    full_result += transcription_dict["text"] + " "
+                    text, words = transcription_to_text_and_words(transcription)
+                    full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing {file.name}: {str(e)}")
         finally:
@@ -150,8 +142,8 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                             response_format="verbose_json" if include_timestamps else "text",
                             language="de"
                         )
-                        transcription_dict = transcription_to_dict(transcription)
-                        full_result += transcription_dict["text"] + " "
+                        text, words = transcription_to_text_and_words(transcription)
+                        full_result += text + " "
                     os.unlink(chunk)
             else:
                 with open(local_filename, "rb") as audio_file:
@@ -161,8 +153,8 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         response_format="verbose_json" if include_timestamps else "text",
                         language="de"
                     )
-                    transcription_dict = transcription_to_dict(transcription)
-                    full_result += transcription_dict["text"] + " "
+                    text, words = transcription_to_text_and_words(transcription)
+                    full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing from {url}: {str(e)}")
         finally:
