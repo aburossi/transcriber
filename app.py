@@ -76,7 +76,19 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
 
     def transcription_to_text_and_words(transcription):
         transcription_dict = transcription.model_dump()
-        return transcription_dict.get("text", ""), transcription_dict.get("words", [])
+        text = transcription_dict.get("text", "")
+        words = transcription_dict.get("words", [])
+        
+        # Format transcription text with timestamps
+        if include_timestamps and words:
+            formatted_text = ""
+            for word_info in words:
+                start = word_info.get("start", 0)
+                word_text = word_info.get("text", "")
+                formatted_text += f"[{start:.2f}] {word_text} "
+            return formatted_text.strip(), words
+        else:
+            return text, words
 
     for file in files:
         processed_files += 1
