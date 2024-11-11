@@ -92,10 +92,6 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
     processed_files = 0
     full_result = ""
 
-    def transcription_to_text(transcription):
-        transcription_dict = transcription.model_dump()
-        return transcription_dict.get("text", "")
-
     for file in files:
         processed_files += 1
         progress = int((processed_files - 1) / total_files * 100)
@@ -116,10 +112,14 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="text",
+                            response_format="verbose_json" if include_timestamps else "text",
                             language="de"
                         )
-                        text = transcription_to_text(transcription)
+                        if include_timestamps:
+                            transcription_data = transcription.model_dump()  # Use model_dump if verbose_json
+                            text = transcription_data.get("text", "")
+                        else:
+                            text = transcription  # Direct text response
                         full_result += text + " "
                     os.unlink(chunk)
             else:
@@ -127,10 +127,14 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format="text",
+                        response_format="verbose_json" if include_timestamps else "text",
                         language="de"
                     )
-                    text = transcription_to_text(transcription)
+                    if include_timestamps:
+                        transcription_data = transcription.model_dump()
+                        text = transcription_data.get("text", "")
+                    else:
+                        text = transcription  # Direct text response
                     full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing {file.name}: {str(e)}")
@@ -157,10 +161,14 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                         transcription = client.audio.transcriptions.create(
                             model="whisper-1",
                             file=audio_file,
-                            response_format="text",
+                            response_format="verbose_json" if include_timestamps else "text",
                             language="de"
                         )
-                        text = transcription_to_text(transcription)
+                        if include_timestamps:
+                            transcription_data = transcription.model_dump()
+                            text = transcription_data.get("text", "")
+                        else:
+                            text = transcription
                         full_result += text + " "
                     os.unlink(chunk)
             else:
@@ -168,10 +176,14 @@ def transcribe_audio(api_key, files, urls, include_timestamps, progress_bar, sta
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
-                        response_format="text",
+                        response_format="verbose_json" if include_timestamps else "text",
                         language="de"
                     )
-                    text = transcription_to_text(transcription)
+                    if include_timestamps:
+                        transcription_data = transcription.model_dump()
+                        text = transcription_data.get("text", "")
+                    else:
+                        text = transcription
                     full_result += text + " "
         except Exception as e:
             st.error(f"Error transcribing from {url}: {str(e)}")
