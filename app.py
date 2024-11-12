@@ -5,19 +5,19 @@ from pydub import AudioSegment
 import tempfile
 import requests
 from io import StringIO
-import converter  # Import the conversion function
+import converter  # Import the updated converter module
 import json
 import streamlit.components.v1 as components
 
 # Set page configuration
 st.set_page_config(
-    page_title="📄 Audio Transcription App",
+    page_title="📄 Audio & Video Transcription App",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Title
-st.title("📄 Audio Transcription App")
+st.title("📄 Audio & Video Transcription App")
 
 # Sidebar for instructions
 with st.sidebar:
@@ -37,7 +37,7 @@ with st.sidebar:
     
     # Continue with additional instructions
     st.markdown("""
-    2. **Upload Audio Files or Enter URLs**: You can either upload audio files (MP3, WAV, OGG, FLAC) directly or provide URLs to audio files.
+    2. **Upload Audio or Video Files or Enter URLs**: You can either upload audio files (MP3, WAV, OGG, FLAC) or video files (MP4, AVI, MOV, MKV, WMV) directly or provide URLs to audio/video files.
     3. **Choose Options**: Select language and whether to include timestamps in the transcription.
     4. **Transcribe**: Click the "Transcribe" button to start the process.
     5. **Download or Copy Transcription**: Once completed, download the transcription as a text file or use the copy button to save it to the clipboard.
@@ -45,11 +45,10 @@ with st.sidebar:
     
     st.header("👉 **Best Practices**")
     st.markdown("""
-    - Ensure your audio files are in supported formats (MP3, WAV, OGG, FLAC).
-    - For large audio files, consider splitting them into smaller segments for more accurate transcription.
+    - Ensure your audio and video files are in supported formats (Audio: MP3, WAV, OGG, FLAC; Video: MP4, AVI, MOV, MKV, WMV).
+    - For large audio/video files, consider splitting them into smaller segments for more accurate transcription.
     - Keep your API key secure and do not share it publicly.
     """)
-
 
 # Function to download file from URL
 def download_file(url, local_filename):
@@ -103,17 +102,18 @@ def generate_minute_based_timestamps(text, interval_minutes=1, words_per_minute=
     return timestamp_text
 
 # Function to handle transcription
-def transcribe_audio(api_key, files, urls, language, include_timestamps, progress_bar, status_text):
+def transcribe_audio(api_key, audio_files, video_files, urls, language, include_timestamps, progress_bar, status_text):
     client = OpenAI(api_key=api_key)
-    total_files = len(files) + len(urls)
+    total_files = len(audio_files) + len(video_files) + len(urls)
     processed_files = 0
     full_result = ""
 
-    for file in files:
+    # Process audio files
+    for file in audio_files:
         processed_files += 1
         progress = int((processed_files - 1) / total_files * 100)
         progress_bar.progress(progress)
-        status_text.text(f"Processing file {file.name}")
+        status_text.text(f"Processing audio file {file.name}")
 
         try:
             # Create temporary file
@@ -175,6 +175,68 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
+    # Process video files
+    for file in video_files:
+        processed_files += 1
+        progress = int((processed_files - 1) / total_files * 100)
+        progress_bar.progress(progress)
+        status_text.text(f"Processing video file {file.name}")
+
+        try:
+            # Create temporary video file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.' + file.type.split('/')[-1]) as temp_video_file:
+                temp_video_file.write(file.read())
+                temp_video_path = temp_video_file.name
+
+            # Extract audio from video
+            audio_output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+            extraction_success = converter.extract_audio_from_video(temp_video_path, audio_output_path)
+            if not extraction_success:
+                st.error(f"Failed to extract audio from {file.name}.")
+                continue
+
+            os.unlink(temp_video_path)  # Remove the video file after extraction
+
+            file_size = os.path.getsize(audio_output_path)
+            if file_size > 20 * 1024 * 1024:
+                status_text.text(f"Splitting large audio extracted from {file.name}...")
+                chunks = split_audio(audio_output_path)
+                for chunk in chunks:
+                    with open(chunk, "rb") as audio_file:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            response_format="verbose_json" if include_timestamps else "text",
+                            language=language
+                        )
+                        if include_timestamps:
+                            transcription_data = transcription.model_dump()
+                            text = transcription_data.get("text", "")
+                        else:
+                            text = transcription
+                        full_result += text + " "
+                    os.unlink(chunk)
+            else:
+                with open(audio_output_path, "rb") as audio_file:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="verbose_json" if include_timestamps else "text",
+                        language=language
+                    )
+                    if include_timestamps:
+                        transcription_data = transcription.model_dump()
+                        text = transcription_data.get("text", "")
+                    else:
+                        text = transcription
+                    full_result += text + " "
+        except Exception as e:
+            st.error(f"Error transcribing {file.name}: {str(e)}")
+        finally:
+            if os.path.exists(audio_output_path):
+                os.unlink(audio_output_path)
+
+    # Process URLs (assumed to be audio or video)
     for url in urls:
         processed_files += 1
         progress = int((processed_files - 1) / total_files * 100)
@@ -182,31 +244,46 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
         status_text.text(f"Processing URL {url}")
 
         try:
-            # Download the file
-            local_filename = f"temp_audio_{processed_files}"
+            # Determine file extension from URL
             url_extension = url.split('.')[-1].lower()
             if url_extension not in converter.SUPPORTED_FORMATS:
                 st.error(f"Unsupported file format from URL: {url}")
                 continue
-            temp_download_path = f"{local_filename}.{url_extension}"
+
+            temp_download_path = f"temp_download_{processed_files}.{url_extension}"
             downloaded_file = download_file(url, temp_download_path)
             if not downloaded_file:
                 continue
 
-            # Convert to MP3 if necessary
-            if url_extension != 'mp3':
+            # If it's a video, extract audio
+            if url_extension in converter.SUPPORTED_VIDEO_FORMATS:
+                st.info(f"Extracting audio from video URL: {url}")
+                audio_extracted_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                extraction_success = converter.extract_audio_from_video(downloaded_file, audio_extracted_path)
+                if extraction_success:
+                    os.remove(downloaded_file)  # Remove video file after extraction
+                    temp_download_path = audio_extracted_path
+                else:
+                    st.error(f"Failed to extract audio from {url}.")
+                    os.remove(downloaded_file)
+                    continue
+
+            # If the file is not MP3, convert to MP3
+            if temp_download_path.split('.')[-1].lower() != 'mp3':
                 st.info(f"Converting {url} to MP3 format...")
                 converted_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                conversion_success = converter.convert_to_mp3(downloaded_file, converted_path)
+                conversion_success = converter.convert_to_mp3(temp_download_path, converted_path)
                 if conversion_success:
-                    os.unlink(downloaded_file)  # Remove original file
+                    os.remove(temp_download_path)  # Remove original file
                     temp_download_path = converted_path
                 else:
                     st.error(f"Failed to convert audio from {url} to MP3.")
+                    os.remove(temp_download_path)
                     continue
 
             file_size = os.path.getsize(temp_download_path)
             if file_size > 20 * 1024 * 1024:
+                status_text.text(f"Splitting large audio file from {url}...")
                 chunks = split_audio(temp_download_path)
                 for chunk in chunks:
                     with open(chunk, "rb") as audio_file:
@@ -254,13 +331,14 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
 st.header("🔑 Enter Your OpenAI API Key")
 api_key = st.text_input("OpenAI API Key:", type="password")
 
-st.header("📂 Upload Audio Files or Enter URLs")
+st.header("📂 Upload Audio or Video Files or Enter URLs")
+# Update the file uploader to accept both audio and video formats
 file_upload = st.file_uploader(
-    "Upload audio files (MP3, WAV, OGG, FLAC)", 
-    type=["mp3", "wav", "ogg", "flac"], 
+    "Upload audio (MP3, WAV, OGG, FLAC) or video files (MP4, AVI, MOV, MKV, WMV)", 
+    type=converter.SUPPORTED_FORMATS, 
     accept_multiple_files=True
 )
-url_input = st.text_area("Or enter audio URLs (one per line):")
+url_input = st.text_area("Or enter audio/video URLs (one per line):")
 
 st.header("⚙️ Options")
 
@@ -287,8 +365,10 @@ if st.button("Transcribe"):
     if not api_key:
         st.error("Please enter your OpenAI API key.")
     elif not file_upload and not url_input.strip():
-        st.error("Please upload at least one audio file or enter a URL.")
+        st.error("Please upload at least one audio/video file or enter a URL.")
     else:
+        audio_files = [file for file in file_upload if file.type in converter.SUPPORTED_AUDIO_FORMATS]
+        video_files = [file for file in file_upload if file.type in converter.SUPPORTED_VIDEO_FORMATS]
         urls = [url.strip() for url in url_input.strip().split('\n') if url.strip()]
 
         progress_bar = st.progress(0)
@@ -297,7 +377,8 @@ if st.button("Transcribe"):
 
         transcription = transcribe_audio(
             api_key=api_key,
-            files=file_upload,
+            audio_files=audio_files,
+            video_files=video_files,
             urls=urls,
             language=language,
             include_timestamps=include_timestamps,
