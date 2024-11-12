@@ -11,13 +11,13 @@ import streamlit.components.v1 as components
 
 # Set page configuration
 st.set_page_config(
-    page_title="📄 Audio & Video Transcription App",
+    page_title="📄 Audio & Video Transcription",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Title
-st.title("📄 Audio & Video Transcription App")
+st.title("📄 Audio & Video Transcription")
 
 # Sidebar for instructions
 with st.sidebar:
