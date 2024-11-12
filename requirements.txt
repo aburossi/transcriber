@@ -1,4 +1,6 @@
 streamlit
 openai
 pydub
+moviepy
 requests
+ffmpeg-python
