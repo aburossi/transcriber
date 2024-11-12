@@ -24,7 +24,7 @@ with st.sidebar:
     st.header("❗ **So verwenden Sie diese App**")
     
     st.markdown("""
-    1. **Geben Sie Ihren OpenAI-API-Schlüssel ein**: Erhalten Sie Ihren API-Schlüssel von [OpenAI](https://platform.openai.com/account/api-keys) und geben Sie ihn unten ein.
+    1. **Geben Sie Ihren OpenAI-API-Schlüssel ein**: Erhalten Sie Ihren API-Schlüssel von [OpenAI](https://platform.openai.com/account/api-keys) und geben Sie ihn links im Feld *OpenAI-API-Schlüssel* ein.
     """)
     
     # Video in die Seitenleiste einbetten
@@ -41,6 +41,21 @@ with st.sidebar:
     3. **Optionen wählen**: Wählen Sie die Sprache und ob Zeitstempel in das Transkript aufgenommen werden sollen.
     4. **Transkribieren**: Klicken Sie auf die Schaltfläche "Transkribieren", um den Prozess zu starten.
     5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript als Textdatei herunterladen oder die Kopierschaltfläche verwenden, um es in die Zwischenablage zu kopieren.
+    6. **Kosten**: Die Transkription einer Audiodatei kostet 0.006 US$ per Minute. Die Kosten werden vom persönlichen OpenAI-Guthaben gedeckt (s. Video 👆 für eine Anleitung, wie man einen API-Schlüssel generiert und Guthaben laden kann).
+    """)
+
+    # Seitenleiste oder Fußzeile für Lizenz- und Kontaktinformationen
+    st.markdown("---")
+    st.header("📜 Lizenz")
+    st.markdown("""
+    Diese Anwendung steht unter der [MIT-Lizenz](https://opensource.org/licenses/MIT). 
+    Sie dürfen diese Software verwenden, ändern und weitergeben, solange die ursprüngliche Lizenz beibehalten wird.
+    """)
+
+    st.header("💬 Kontakt")
+    st.markdown("""
+    Für Unterstützung, Fragen oder um mehr über die Nutzung dieser App zu erfahren, kannst du gerne auf mich zukommen.
+    **Kontakt**: [Pietro](mailto:pietro.rossi@bbw.ch)
     """)
 
 
