@@ -29,7 +29,7 @@ with st.sidebar:
     
     # Embed the video in the sidebar
     components.html("""
-        <iframe width="100%" height="180" src="https://www.youtube.com/embed/2V0QnwKxFXg" 
+        <iframe width="100%" height="180" src="https://www.youtube.com/embed/OB99E7Y1cMA" 
         title="Demo Video in German" frameborder="0" allow="accelerometer; autoplay; 
         clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
         </iframe>
