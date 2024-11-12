@@ -16,31 +16,31 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Title
-st.title("📄 Audio & Video Transcription App")
+# Titel
+st.title("📄 Audio- & Video-Transkriptions-App")
 
-# Sidebar for instructions
+# Seitenleiste für Anweisungen
 with st.sidebar:
-    st.header("❗ **How to Use This App**")
+    st.header("❗ **So verwenden Sie diese App**")
     
     st.markdown("""
-    1. **Enter your OpenAI API Key**: Obtain your API key from [OpenAI](https://platform.openai.com/account/api-keys) and enter it below.
+    1. **Geben Sie Ihren OpenAI-API-Schlüssel ein**: Erhalten Sie Ihren API-Schlüssel von [OpenAI](https://platform.openai.com/account/api-keys) und geben Sie ihn unten ein.
     """)
     
-    # Embed the video in the sidebar
+    # Video in die Seitenleiste einbetten
     components.html("""
         <iframe width="100%" height="180" src="https://www.youtube.com/embed/OB99E7Y1cMA" 
-        title="Demo Video in German" frameborder="0" allow="accelerometer; autoplay; 
+        title="Demo-Video auf Deutsch" frameborder="0" allow="accelerometer; autoplay; 
         clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
         </iframe>
     """, height=180)
     
-    # Continue with additional instructions
+    # Fortfahren mit zusätzlichen Anweisungen
     st.markdown("""
-    2. **Upload Audio or Video Files or Enter URLs**: You can either upload files (MP3, WAV, OGG, FLAC, MP4, MKV, AVI) directly or provide URLs.
-    3. **Choose Options**: Select language and whether to include timestamps in the transcription.
-    4. **Transcribe**: Click the "Transcribe" button to start the process.
-    5. **Download or Copy Transcription**: Once completed, download the transcription as a text file or use the copy button to save it to the clipboard.
+    2. **Laden Sie Audio- oder Videodateien hoch oder geben Sie URLs ein**: Sie können entweder Dateien (MP3, WAV, OGG, FLAC, MP4, MKV, AVI) direkt hochladen oder URLs angeben.
+    3. **Optionen wählen**: Wählen Sie die Sprache und ob Zeitstempel in das Transkript aufgenommen werden sollen.
+    4. **Transkribieren**: Klicken Sie auf die Schaltfläche "Transkribieren", um den Prozess zu starten.
+    5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript als Textdatei herunterladen oder die Kopierschaltfläche verwenden, um es in die Zwischenablage zu kopieren.
     """)
 
 
@@ -226,46 +226,46 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
     return full_result
 
 # Streamlit Widgets
-st.header("🔑 Enter Your OpenAI API Key")
-api_key = st.text_input("OpenAI API Key:", type="password")
+st.header("🔑 Geben Sie Ihren OpenAI-API-Schlüssel ein")
+api_key = st.text_input("OpenAI-API-Schlüssel:", type="password")
 
-st.header("📂 Upload Audio or Video Files or Enter URLs")
+st.header("📂 Audio- oder Videodateien hochladen oder URLs eingeben")
 file_upload = st.file_uploader(
-    "Upload audio or video files (MP3, WAV, OGG, FLAC, MP4, MKV, AVI)", 
+    "Audio- oder Videodateien hochladen (MP3, WAV, OGG, FLAC, MP4, MKV, AVI)", 
     type=["mp3", "wav", "ogg", "flac", "mp4", "mkv", "avi"], 
     accept_multiple_files=True
 )
-url_input = st.text_area("Or enter audio/video URLs (one per line):")
+url_input = st.text_area("Oder geben Sie Audio-/Video-URLs ein (eine pro Zeile):")
 
-st.header("⚙️ Options")
+st.header("⚙️ Optionen")
 
 language = st.selectbox(
-    "Select Language", 
+    "Sprache auswählen", 
     ["de", "en", "it", "fr", "es"], 
     format_func=lambda x: {
-        "de": "German", 
-        "en": "English", 
-        "it": "Italian", 
-        "fr": "French", 
-        "es": "Spanish"
+        "de": "Deutsch", 
+        "en": "Englisch", 
+        "it": "Italienisch", 
+        "fr": "Französisch", 
+        "es": "Spanisch"
     }.get(x, x)
 )
 
 include_timestamps = st.checkbox(
-    "Include Timestamps in Transcription (based on estimated word count, not exact seconds)"
+    "Zeitstempel im Transkript aufnehmen (basierend auf geschätzter Wortanzahl, nicht exakten Sekunden)"
 )
 
-if st.button("Transcribe"):
+if st.button("Transkribieren"):
     if not api_key:
-        st.error("Please enter your OpenAI API key.")
+        st.error("Bitte geben Sie Ihren OpenAI-API-Schlüssel ein.")
     elif not file_upload and not url_input.strip():
-        st.error("Please upload at least one audio or video file or enter a URL.")
+        st.error("Bitte laden Sie mindestens eine Audio- oder Videodatei hoch oder geben Sie eine URL ein.")
     else:
         urls = [url.strip() for url in url_input.strip().split('\n') if url.strip()]
 
         progress_bar = st.progress(0)
         status_text = st.empty()
-        status_text.text("Starting transcription...")
+        status_text.text("Transkription startet...")
 
         transcription = transcribe_audio(
             api_key=api_key,
@@ -278,10 +278,10 @@ if st.button("Transcribe"):
         )
 
         if transcription:
-            st.success("Transcription completed successfully!")
+            st.success("Transkription erfolgreich abgeschlossen!")
             
             transcription_area = st.text_area(
-                "Transcription Result:",
+                "Transkriptionsergebnis:",
                 transcription,
                 height=300,
                 key="transcription"
@@ -293,16 +293,16 @@ if st.button("Transcribe"):
             <div style="margin-top: 10px;">
                 <button onclick="copyToClipboard()" style="background-color:#4CAF50; border:none; color:white; padding:10px 20px; text-align:center;
                 text-decoration:none; display:inline-block; font-size:16px; border-radius:5px; cursor:pointer;">
-                    📋 Copy to Clipboard
+                    📋 In die Zwischenablage kopieren
                 </button>
             </div>
             <script>
                 function copyToClipboard() {{
                     const text = {transcription_json};
                     navigator.clipboard.writeText(text).then(function() {{
-                        alert("Transcription copied to clipboard!");
+                        alert("Transkription in die Zwischenablage kopiert!");
                     }}, function(err) {{
-                        alert("Failed to copy text: ", err);
+                        alert("Kopieren des Texts fehlgeschlagen: ", err);
                     }});
                 }}
             </script>
@@ -310,10 +310,10 @@ if st.button("Transcribe"):
 
             components.html(copy_button_html, height=100)
             
-            transcription_filename = "transcription.txt"
+            transcription_filename = "transkription.txt"
             transcription_io = StringIO(transcription)
             st.download_button(
-                label="⬇️ Download Transcription as .txt",
+                label="⬇️ Transkription als .txt herunterladen",
                 data=transcription_io.getvalue(),
                 file_name=transcription_filename,
                 mime="text/plain"
