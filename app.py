@@ -93,6 +93,25 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
+def generate_minute_based_timestamps(transcription, interval_minutes=1):
+    """
+    Generate timestamps for transcription based on estimated intervals.
+
+    Args:
+        transcription (str): The full transcription text.
+        interval_minutes (int): Interval in minutes for timestamps.
+
+    Returns:
+        str: Transcription text with timestamps added.
+    """
+    words = transcription.split()
+    words_per_interval = len(words) // (interval_minutes * len(words) // 60)
+    result = []
+    for i in range(0, len(words), words_per_interval):
+        timestamp = f"[{i // words_per_interval}:{(i % words_per_interval) * 60}]"
+        result.append(timestamp + " " + " ".join(words[i:i + words_per_interval]))
+    return " ".join(result)
+
 
 # Function to handle transcription
 def transcribe_audio(api_key, files, urls, language, include_timestamps, progress_bar, status_text):
