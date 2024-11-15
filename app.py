@@ -5,7 +5,6 @@ from pydub import AudioSegment
 import tempfile
 import requests
 from io import StringIO
-import converter  # Import the updated conversion function
 import json
 import streamlit.components.v1 as components
 
@@ -19,22 +18,23 @@ st.set_page_config(
 # Title
 st.title("📄 Audio- & Video-Transkriptions-App")
 
-# Sidebar instructions
+# Sidebar Instructions
 with st.sidebar:
     st.header("❗ **So verwenden Sie diese App**")
     st.markdown("""
-    1. **Geben Sie Ihren OpenAI-API-Schlüssel ein**: Erhalten Sie Ihren API-Schlüssel von [OpenAI](https://platform.openai.com/account/api-keys) und geben Sie ihn links im Feld *OpenAI-API-Schlüssel* ein.
-    2. **Laden Sie Audio- oder Videodateien hoch oder geben Sie URLs ein**: Sie können entweder Dateien (MP3, WAV, OGG, FLAC, MP4, MKV, AVI) direkt hochladen oder URLs angeben.
-    3. **Optionen wählen**: Wählen Sie die Sprache und ob Zeitstempel in das Transkript aufgenommen werden sollen.
-    4. **Transkribieren**: Klicken Sie auf die Schaltfläche "Transkribieren", um den Prozess zu starten.
-    5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript als Textdatei herunterladen oder die Kopierschaltfläche verwenden, um es in die Zwischenablage zu kopieren.
+    1. **Geben Sie Ihren OpenAI-API-Schlüssel ein**: Erhalten Sie Ihren API-Schlüssel von [OpenAI](https://platform.openai.com/account/api-keys).
+    2. **Laden Sie Audio- oder Videodateien hoch oder geben Sie URLs ein**: Unterstützte Formate sind MP3, WAV, OGG, FLAC, MP4, MKV, AVI.
+    3. **Optionen wählen**: Wählen Sie die Sprache und ob Zeitstempel im Transkript aufgenommen werden sollen.
+    4. **Transkribieren**: Starten Sie den Prozess und erhalten Sie das Transkript.
+    5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript herunterladen oder kopieren.
     """)
-    components.html("""
-        <iframe width="100%" height="180" src="https://www.youtube.com/embed/OB99E7Y1cMA" 
-        title="Demo-Video auf Deutsch" frameborder="0" allowfullscreen></iframe>
-    """, height=180)
+    st.markdown("---")
+    st.header("📜 Lizenz")
+    st.markdown("Diese Anwendung steht unter der [MIT-Lizenz](https://opensource.org/licenses/MIT).")
+    st.header("💬 Kontakt")
+    st.markdown("**Kontakt**: [Pietro](mailto:pietro.rossi@bbw.ch)")
 
-# Helper function to download file from URL
+# Helper Functions
 def download_file(url, local_filename):
     try:
         with requests.get(url, stream=True) as r:
@@ -47,8 +47,7 @@ def download_file(url, local_filename):
         st.error(f"Failed to download {url}: {e}")
         return None
 
-# Helper function to split audio into chunks
-def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
+def split_audio(file_path, chunk_size=20 * 1024 * 1024):
     try:
         audio = AudioSegment.from_file(file_path)
         chunks = []
@@ -57,7 +56,7 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         chunk_length_ms = int((chunk_size / bytes_per_second) * 1000)
 
         for i in range(0, duration, chunk_length_ms):
-            chunk = audio[i:i+chunk_length_ms]
+            chunk = audio[i:i + chunk_length_ms]
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
                 chunk.export(temp_file.name, format="mp3")
                 chunks.append(temp_file.name)
@@ -67,22 +66,20 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
-# Helper function to generate timestamps
-def generate_minute_based_timestamps(transcription, total_duration_seconds, interval_seconds=60):
-    words = transcription.split()
-    total_words = len(words)
-    words_per_interval = max(1, total_words // (total_duration_seconds // interval_seconds))
-
+def generate_minute_based_timestamps(transcript, words_per_minute=150, interval_minutes=1):
+    words = transcript.split()
+    interval_words = words_per_minute * interval_minutes
     result = []
-    for i in range(0, total_words, words_per_interval):
-        current_time_seconds = (i // words_per_interval) * interval_seconds
-        minutes, seconds = divmod(current_time_seconds, 60)
-        timestamp = f"[{minutes}:{seconds:02d}]"
-        line = f"{timestamp}\n{' '.join(words[i:i + words_per_interval])}"
-        result.append(line)
-    return "\n\n".join(result)
+    timestamp_minutes = 0
 
-# Function to handle transcription
+    for i in range(0, len(words), interval_words):
+        timestamp = f"[{timestamp_minutes:02d}:00]"
+        chunk = " ".join(words[i:i + interval_words])
+        result.append(f"{timestamp} {chunk}")
+        timestamp_minutes += interval_minutes
+
+    return "\n".join(result)
+
 def transcribe_audio(api_key, files, urls, language, include_timestamps, progress_bar, status_text):
     client = OpenAI(api_key=api_key)
     total_files = len(files) + len(urls)
@@ -91,35 +88,49 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
 
     for file in files:
         processed_files += 1
-        progress = int((processed_files - 1) / total_files * 100)
-        progress_bar.progress(progress)
+        progress_bar.progress(processed_files / total_files)
         status_text.text(f"Processing file {file.name}")
 
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.' + file.type.split('/')[-1]) as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.type.split('/')[-1]}") as temp_file:
                 temp_file.write(file.read())
                 temp_file_path = temp_file.name
 
-            audio = AudioSegment.from_file(temp_file_path)
-            total_duration_seconds = len(audio) // 1000
-
-            transcription = "Sample transcription from OpenAI."  # Replace with actual API call logic
-            if include_timestamps:
-                transcription = generate_minute_based_timestamps(transcription, total_duration_seconds)
-
-            full_result += transcription + "\n\n"
-
+            file_size = os.path.getsize(temp_file_path)
+            if file_size > 20 * 1024 * 1024:
+                chunks = split_audio(temp_file_path)
+                for chunk in chunks:
+                    with open(chunk, "rb") as audio_file:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            response_format="text",
+                            language=language
+                        )
+                        full_result += transcription + " "
+            else:
+                with open(temp_file_path, "rb") as audio_file:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="text",
+                        language=language
+                    )
+                    full_result += transcription + " "
         except Exception as e:
             st.error(f"Error transcribing {file.name}: {str(e)}")
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
-    progress_bar.progress(100)
+    if include_timestamps:
+        full_result = generate_minute_based_timestamps(full_result)
+
+    progress_bar.progress(1.0)
     status_text.text("Transcription completed successfully!")
     return full_result
 
-# Streamlit interface
+# Streamlit UI
 st.header("🔑 Geben Sie Ihren OpenAI-API-Schlüssel ein")
 api_key = st.text_input("OpenAI-API-Schlüssel:", type="password")
 
@@ -132,25 +143,33 @@ file_upload = st.file_uploader(
 url_input = st.text_area("Oder geben Sie Audio-/Video-URLs ein (eine pro Zeile):")
 
 st.header("⚙️ Optionen")
-language = st.selectbox("Sprache auswählen", ["de", "en", "it", "fr", "es"], format_func=lambda x: {
-    "de": "Deutsch", "en": "Englisch", "it": "Italienisch", "fr": "Französisch", "es": "Spanisch"
-}.get(x, x))
+language = st.selectbox(
+    "Sprache auswählen", 
+    ["de", "en", "it", "fr", "es"], 
+    format_func=lambda x: {
+        "de": "Deutsch", 
+        "en": "Englisch", 
+        "it": "Italienisch", 
+        "fr": "Französisch", 
+        "es": "Spanisch"
+    }.get(x, x)
+)
 include_timestamps = st.checkbox("Zeitstempel im Transkript aufnehmen")
 
 if st.button("Transkribieren"):
     if not api_key:
         st.error("Bitte geben Sie Ihren OpenAI-API-Schlüssel ein.")
     elif not file_upload and not url_input.strip():
-        st.error("Bitte laden Sie mindestens eine Audio- oder Videodatei hoch oder geben Sie eine URL ein.")
+        st.error("Bitte laden Sie mindestens eine Datei hoch oder geben Sie eine URL ein.")
     else:
+        urls = [url.strip() for url in url_input.splitlines() if url.strip()]
         progress_bar = st.progress(0)
         status_text = st.empty()
-        status_text.text("Transkription startet...")
 
         transcription = transcribe_audio(
             api_key=api_key,
             files=file_upload,
-            urls=[url.strip() for url in url_input.split('\n') if url.strip()],
+            urls=urls,
             language=language,
             include_timestamps=include_timestamps,
             progress_bar=progress_bar,
@@ -160,3 +179,9 @@ if st.button("Transkribieren"):
         if transcription:
             st.success("Transkription erfolgreich abgeschlossen!")
             st.text_area("Transkriptionsergebnis:", transcription, height=300)
+            st.download_button(
+                label="⬇️ Transkription herunterladen",
+                data=transcription,
+                file_name="transcription.txt",
+                mime="text/plain"
+            )
