@@ -28,6 +28,12 @@ with st.sidebar:
     4. **Transkribieren**: Starten Sie den Prozess und erhalten Sie das Transkript.
     5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript herunterladen oder kopieren.
     """)
+    components.html("""
+        <iframe width="100%" height="180" src="https://www.youtube.com/embed/OB99E7Y1cMA" 
+        title="Demo-Video auf Deutsch" frameborder="0" allow="accelerometer; autoplay; 
+        clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+        </iframe>
+    """, height=180)
     st.markdown("---")
     st.header("📜 Lizenz")
     st.markdown("Diese Anwendung steht unter der [MIT-Lizenz](https://opensource.org/licenses/MIT).")
@@ -179,6 +185,29 @@ if st.button("Transkribieren"):
         if transcription:
             st.success("Transkription erfolgreich abgeschlossen!")
             st.text_area("Transkriptionsergebnis:", transcription, height=300)
+
+            transcription_json = json.dumps(transcription)
+
+            copy_button_html = f"""
+            <div style="margin-top: 10px;">
+                <button onclick="copyToClipboard()" style="background-color:#4CAF50; border:none; color:white; padding:10px 20px; text-align:center;
+                text-decoration:none; display:inline-block; font-size:16px; border-radius:5px; cursor:pointer;">
+                    📋 In die Zwischenablage kopieren
+                </button>
+            </div>
+            <script>
+                function copyToClipboard() {{
+                    const text = {json.dumps(transcription)};
+                    navigator.clipboard.writeText(text).then(function() {{
+                        alert("Transkription in die Zwischenablage kopiert!");
+                    }}, function(err) {{
+                        alert("Kopieren des Texts fehlgeschlagen: ", err);
+                    }});
+                }}
+            </script>
+            """
+            components.html(copy_button_html, height=100)
+
             st.download_button(
                 label="⬇️ Transkription herunterladen",
                 data=transcription,
