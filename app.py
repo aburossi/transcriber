@@ -93,26 +93,35 @@ def split_audio(file_path, chunk_size=20*1024*1024):  # 20 MB chunks
         st.error(f"Error splitting audio file {file_path}: {e}")
         return []
 
-def generate_minute_based_timestamps(transcription, interval_minutes=1):
+def generate_minute_based_timestamps(transcription, total_duration_seconds, interval_seconds=60):
     """
-    Generate timestamps for transcription based on estimated intervals.
+    Generate timestamps for transcription based on actual audio duration.
 
     Args:
         transcription (str): The full transcription text.
-        interval_minutes (int): Interval in minutes for timestamps.
+        total_duration_seconds (int): Total duration of the audio file in seconds.
+        interval_seconds (int): Interval in seconds for timestamps.
 
     Returns:
         str: Transcription text with timestamps, each starting on a new line.
     """
     words = transcription.split()
     total_words = len(words)
-    interval_word_count = max(1, (total_words // (60 // interval_minutes)))
+
+    # Calculate the number of words per interval
+    words_per_interval = max(1, total_words // (total_duration_seconds // interval_seconds))
 
     result = []
-    for i in range(0, total_words, interval_word_count):
-        timestamp = f"[{i // interval_word_count} min]"
-        line = f"{timestamp}\n{' '.join(words[i:i + interval_word_count])}"
+    for i in range(0, total_words, words_per_interval):
+        # Calculate timestamp in minutes and seconds
+        current_time_seconds = (i // words_per_interval) * interval_seconds
+        minutes, seconds = divmod(current_time_seconds, 60)
+        timestamp = f"[{minutes}:{seconds:02d}]"
+        
+        # Add timestamp and corresponding text to the result
+        line = f"{timestamp}\n{' '.join(words[i:i + words_per_interval])}"
         result.append(line)
+    
     return "\n\n".join(result)
 
 
