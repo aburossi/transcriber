@@ -102,15 +102,18 @@ def generate_minute_based_timestamps(transcription, interval_minutes=1):
         interval_minutes (int): Interval in minutes for timestamps.
 
     Returns:
-        str: Transcription text with timestamps added.
+        str: Transcription text with timestamps, each starting on a new line.
     """
     words = transcription.split()
-    words_per_interval = len(words) // (interval_minutes * len(words) // 60)
+    total_words = len(words)
+    interval_word_count = max(1, (total_words // (60 // interval_minutes)))
+
     result = []
-    for i in range(0, len(words), words_per_interval):
-        timestamp = f"[{i // words_per_interval}:{(i % words_per_interval) * 60}]"
-        result.append(timestamp + " " + " ".join(words[i:i + words_per_interval]))
-    return " ".join(result)
+    for i in range(0, total_words, interval_word_count):
+        timestamp = f"[{i // interval_word_count} min]"
+        line = f"{timestamp}\n{' '.join(words[i:i + interval_word_count])}"
+        result.append(line)
+    return "\n\n".join(result)
 
 
 # Function to handle transcription
