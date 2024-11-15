@@ -265,7 +265,17 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
                 os.remove(temp_download_path)
 
     if include_timestamps:
-        full_result = generate_minute_based_timestamps(full_result, interval_minutes=1)
+        audio = AudioSegment.from_file(temp_file_path)
+        total_duration_seconds = len(audio) // 1000  # Convert milliseconds to seconds
+        full_result = generate_minute_based_timestamps(
+            full_result, 
+            total_duration_seconds=total_duration_seconds, 
+            interval_seconds=60  # Default 1-minute intervals
+        )
+
+        
+        # Generate timestamps
+        full_result = generate_minute_based_timestamps(full_result, total_duration_seconds=total_duration_seconds, interval_seconds=60)
 
     progress_bar.progress(100)
     status_text.text("Transcription completed successfully!")
