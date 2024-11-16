@@ -29,7 +29,7 @@ with st.sidebar:
     5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript herunterladen oder kopieren.
     """)
     components.html("""
-        <iframe width="100%" height="180" src="https://www.youtube.com/embed/OB99E7Y1cMA" 
+        <iframe width="100%" height="180" src="https://www.youtube.com/embed/NsTAjBdHb1k" 
         title="Demo-Video auf Deutsch" frameborder="0" allow="accelerometer; autoplay; 
         clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
         </iframe>
