@@ -20,27 +20,23 @@ st.title("📄 Audio- & Video-Transkriptions-App")
 
 # Sidebar Instructions
 with st.sidebar:
+    st.markdown("<style>div[data-testid='stSidebar'] { width: 300px; }</style>", unsafe_allow_html=True)
     st.header("❗ **So verwenden Sie diese App**")
     st.markdown("""
     1. **Geben Sie Ihren OpenAI-API-Schlüssel ein**: Erhalten Sie Ihren API-Schlüssel von [OpenAI](https://platform.openai.com/account/api-keys).
     """)
-
-    # Embedded video inserted between step 1 and step 2
     components.html("""
-        <iframe width="100%" height="180" src="https://www.youtube.com/embed/NsTAjBdHb1k" 
+        <iframe width="280px" height="180" src="https://www.youtube.com/embed/NsTAjBdHb1k" 
         title="Demo-Video auf Deutsch" frameborder="0" allow="accelerometer; autoplay; 
         clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
         </iframe>
     """, height=180)
-    
-    # Remaining instruction steps starting from step 2
     st.markdown("""
     2. **Laden Sie Audio- oder Videodateien hoch oder geben Sie URLs ein**: Unterstützte Formate sind MP3, WAV, OGG, FLAC, MP4, MKV, AVI.
     3. **Optionen wählen**: Wählen Sie die Sprache und ob Zeitstempel im Transkript aufgenommen werden sollen.
     4. **Transkribieren**: Starten Sie den Prozess und erhalten Sie das Transkript.
     5. **Transkript herunterladen oder kopieren**: Nach Abschluss können Sie das Transkript herunterladen oder kopieren.
     """)
-
     st.markdown("---")
     st.header("📜 Lizenz")
     st.markdown("Diese Anwendung steht unter der [MIT-Lizenz](https://opensource.org/licenses/MIT).")
