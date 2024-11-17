@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Title
-st.title("📄 Audio- & Video-Transkriptions-App")
+st.title("📄 Audio- & Video-Transkriptions-App V 1.0")
 
 # Sidebar Instructions
 with st.sidebar:
