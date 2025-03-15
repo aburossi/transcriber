@@ -95,6 +95,7 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
     processed_files = 0
     full_result = ""
 
+    # Process uploaded files
     for file in files:
         processed_files += 1
         progress_bar.progress(processed_files / total_files)
@@ -132,12 +133,54 @@ def transcribe_audio(api_key, files, urls, language, include_timestamps, progres
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
+    # Process URLs
+    for url in urls:
+        processed_files += 1
+        progress_bar.progress(processed_files / total_files)
+        status_text.text(f"Processing URL: {url}")
+
+        # Create a temporary file name with an appropriate suffix (assuming .mp3 here)
+        temp_file_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+        downloaded = download_file(url, temp_file_path)
+        if not downloaded:
+            st.error(f"Failed to download URL: {url}")
+            continue
+
+        try:
+            file_size = os.path.getsize(downloaded)
+            if file_size > 20 * 1024 * 1024:
+                chunks = split_audio(downloaded)
+                for chunk in chunks:
+                    with open(chunk, "rb") as audio_file:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            response_format="text",
+                            language=language
+                        )
+                        full_result += transcription + " "
+            else:
+                with open(downloaded, "rb") as audio_file:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="text",
+                        language=language
+                    )
+                    full_result += transcription + " "
+        except Exception as e:
+            st.error(f"Error transcribing {url}: {str(e)}")
+        finally:
+            if os.path.exists(downloaded):
+                os.unlink(downloaded)
+
     if include_timestamps:
         full_result = generate_minute_based_timestamps(full_result)
 
     progress_bar.progress(1.0)
     status_text.text("Transcription completed successfully!")
     return full_result
+
 
 # Streamlit UI
 st.header("🔑 Geben Sie Ihren OpenAI-API-Schlüssel ein")
